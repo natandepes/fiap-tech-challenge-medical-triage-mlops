@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+data
+models
+docs
+benchmarks
+tests
+*.pdf
+CLAUDE.md
