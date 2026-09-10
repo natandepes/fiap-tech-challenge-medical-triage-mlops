@@ -1,0 +1,30 @@
+from triage_api import URGENCY_LABELS
+
+
+def test_health_reports_model_loaded(client):
+    body = client.get("/health").json()
+    assert body["status"] == "ok"
+    assert body["model_loaded"] is True
+
+
+def test_predict_returns_a_valid_urgency_label(client):
+    report = "Impression: acute intracranial hemorrhage. Immediate clinical attention required."
+    response = client.post("/predict", json={"text": report})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["urgency"] in URGENCY_LABELS
+    assert 0.0 <= body["confidence"] <= 1.0
+    assert set(body["probabilities"]) == set(URGENCY_LABELS)
+
+
+def test_predict_flags_a_clearly_urgent_report(client):
+    report = (
+        "Large pulmonary embolism with right heart strain. "
+        "Patient is hemodynamically unstable."
+    )
+    response = client.post("/predict", json={"text": report})
+    assert response.json()["urgency"] == "urgent"
+
+
+def test_predict_rejects_empty_text(client):
+    assert client.post("/predict", json={"text": ""}).status_code == 422
