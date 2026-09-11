@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from triage_api import URGENCY_LABELS
 from triage_api.config import DATASET_PATH, DATASET_SIZE, RANDOM_SEED
+from triage_api.enums import Urgency
 
 _BODY_SITES = [
     "chest", "abdomen", "left lung", "right lung", "cranium", "lumbar spine",
@@ -17,7 +17,7 @@ _MODALITIES = [
 ]
 
 _FINDINGS = {
-    "normal": [
+    Urgency.NORMAL: [
         "no acute abnormality identified",
         "findings within normal limits",
         "unremarkable study",
@@ -29,7 +29,7 @@ _FINDINGS = {
         "results within the reference range",
         "trace physiologic fluid, not clinically significant",
     ],
-    "attention": [
+    Urgency.ATTENTION: [
         "moderate findings that warrant outpatient follow-up",
         "a small indeterminate nodule, recommend surveillance imaging",
         "mildly elevated inflammatory markers",
@@ -41,7 +41,7 @@ _FINDINGS = {
         "mild pleural thickening, follow-up in a few weeks",
         "abnormal but not immediately threatening result",
     ],
-    "urgent": [
+    Urgency.URGENT: [
         "acute intracranial hemorrhage",
         "large pulmonary embolism with right heart strain",
         "findings compatible with acute myocardial infarction",
@@ -65,9 +65,14 @@ _TEMPLATES = [
 ]
 
 _QUALIFIERS = {
-    "normal": ["Patient is comfortable.", "No new complaints.", "Routine review.", ""],
-    "attention": ["Symptoms are stable.", "Patient reports mild discomfort.", "Non-emergent.", ""],
-    "urgent": [
+    Urgency.NORMAL: ["Patient is comfortable.", "No new complaints.", "Routine review.", ""],
+    Urgency.ATTENTION: [
+        "Symptoms are stable.",
+        "Patient reports mild discomfort.",
+        "Non-emergent.",
+        "",
+    ],
+    Urgency.URGENT: [
         "Patient is hemodynamically unstable.",
         "Immediate clinical attention required.",
         "Rapid deterioration noted.",
@@ -85,15 +90,15 @@ _SHARED_FILLER = [
 ]
 
 _NEIGHBOURS = {
-    "normal": "attention",
-    "attention": "normal",
-    "urgent": "attention",
+    Urgency.NORMAL: Urgency.ATTENTION,
+    Urgency.ATTENTION: Urgency.NORMAL,
+    Urgency.URGENT: Urgency.ATTENTION,
 }
 
 _AMBIGUITY_RATE = 0.18
 
 
-def _make_row(rng: random.Random, label: str) -> str:
+def _make_row(rng: random.Random, label: Urgency) -> str:
     template = rng.choice(_TEMPLATES)
     sentence = template.format(
         modality=rng.choice(_MODALITIES),
@@ -114,10 +119,10 @@ def _make_row(rng: random.Random, label: str) -> str:
 
 def generate_dataframe(n_samples: int = DATASET_SIZE, seed: int = RANDOM_SEED) -> pd.DataFrame:
     rng = random.Random(seed)
-    per_label = n_samples // len(URGENCY_LABELS)
+    per_label = n_samples // len(Urgency)
     rows = [
-        {"text": _make_row(rng, label), "urgency": label}
-        for label in URGENCY_LABELS
+        {"text": _make_row(rng, label), "urgency": label.value}
+        for label in Urgency
         for _ in range(per_label)
     ]
     rng.shuffle(rows)

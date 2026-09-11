@@ -1,4 +1,4 @@
-from triage_api import URGENCY_LABELS
+from triage_api.enums import Urgency
 
 
 def test_health_reports_model_loaded(client):
@@ -12,9 +12,9 @@ def test_predict_returns_a_valid_urgency_label(client):
     response = client.post("/predict", json={"text": report})
     assert response.status_code == 200
     body = response.json()
-    assert body["urgency"] in URGENCY_LABELS
+    assert body["urgency"] in set(Urgency)
     assert 0.0 <= body["confidence"] <= 1.0
-    assert set(body["probabilities"]) == set(URGENCY_LABELS)
+    assert set(body["probabilities"]) == set(Urgency)
 
 
 def test_predict_flags_a_clearly_urgent_report(client):
@@ -23,7 +23,7 @@ def test_predict_flags_a_clearly_urgent_report(client):
         "Patient is hemodynamically unstable."
     )
     response = client.post("/predict", json={"text": report})
-    assert response.json()["urgency"] == "urgent"
+    assert response.json()["urgency"] == Urgency.URGENT
 
 
 def test_predict_rejects_empty_text(client):

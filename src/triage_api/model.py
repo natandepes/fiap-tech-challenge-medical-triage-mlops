@@ -6,18 +6,20 @@ from pathlib import Path
 import joblib
 from sklearn.pipeline import Pipeline
 
+from triage_api.enums import Urgency
+
 
 @dataclass(frozen=True)
 class Prediction:
-    urgency: str
+    urgency: Urgency
     confidence: float
-    probabilities: dict[str, float]
+    probabilities: dict[Urgency, float]
 
 
 class TriageModel:
     def __init__(self, pipeline: Pipeline) -> None:
         self._pipeline = pipeline
-        self._classes = list(pipeline.classes_)
+        self._classes = [Urgency(label) for label in pipeline.classes_]
 
     @classmethod
     def load(cls, path: Path) -> TriageModel:
