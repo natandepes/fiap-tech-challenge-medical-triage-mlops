@@ -19,8 +19,7 @@ def test_predict_returns_a_valid_urgency_label(client):
 
 def test_predict_flags_a_clearly_urgent_report(client):
     report = (
-        "Large pulmonary embolism with right heart strain. "
-        "Patient is hemodynamically unstable."
+        "Large pulmonary embolism with right heart strain. Patient is hemodynamically unstable."
     )
     response = client.post("/predict", json={"text": report})
     assert response.json()["urgency"] == Urgency.URGENT
