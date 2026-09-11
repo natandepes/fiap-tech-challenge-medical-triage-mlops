@@ -28,3 +28,7 @@ def test_predict_flags_a_clearly_urgent_report(client):
 
 def test_predict_rejects_empty_text(client):
     assert client.post("/predict", json={"text": ""}).status_code == 422
+
+
+def test_predict_rejects_whitespace_only_text(client):
+    assert client.post("/predict", json={"text": "   \n\t "}).status_code == 422
