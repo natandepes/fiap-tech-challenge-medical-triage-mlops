@@ -6,8 +6,6 @@ from pathlib import Path
 import joblib
 from sklearn.pipeline import Pipeline
 
-from triage_api.config import MODEL_PATH
-
 
 @dataclass(frozen=True)
 class Prediction:
@@ -22,11 +20,9 @@ class TriageModel:
         self._classes = list(pipeline.classes_)
 
     @classmethod
-    def load(cls, path: Path = MODEL_PATH) -> TriageModel:
-        if not Path(path).exists():
-            raise FileNotFoundError(
-                f"model artifact not found at {path}; run `python -m triage_api.train`"
-            )
+    def load(cls, path: Path) -> TriageModel:
+        if not path.exists():
+            raise FileNotFoundError(f"Model artifact not found at {path}")
         return cls(joblib.load(path))
 
     def predict(self, text: str) -> Prediction:

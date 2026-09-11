@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 
 from triage_api import __version__
+from triage_api.config import MODEL_PATH
 from triage_api.model import TriageModel
 from triage_api.schemas import HealthResponse, TriageRequest, TriageResponse
 
@@ -13,7 +14,7 @@ _state: dict[str, TriageModel] = {}
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    _state["model"] = TriageModel.load()
+    _state["model"] = TriageModel.load(MODEL_PATH)
     yield
     _state.clear()
 
