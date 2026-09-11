@@ -24,5 +24,5 @@ docker-build:
 docker-run:
 	docker run --rm -p 8000:8000 triage-api:latest
 
-latency:
+latency: train docker-build
 	uv run python scripts/measure_latency.py

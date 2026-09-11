@@ -68,6 +68,7 @@ becomes the ingestion task of the Airflow DAG.
 make install        # uv sync --extra dev
 make train          # generate dataset + train -> models/model.joblib
 make serve          # uvicorn on http://localhost:8000
+make latency        # record the latency baseline -> benchmarks/
 ```
 
 ### Docker
@@ -100,19 +101,24 @@ curl -s localhost:8000/predict \
 
 ## Latency baseline
 
-Run against the container:
-
 ```bash
-make docker-run                       # in one shell
-uv run python scripts/measure_latency.py   # in another
+make latency
 ```
 
-The script fires N requests at `/predict` and writes p50/p95/p99 to
-`benchmarks/latency_baseline.md`. Stage 4 re-runs the same script against the ONNX build and records
-the before/after comparison. See [`benchmarks/latency_baseline.md`](benchmarks/latency_baseline.md).
+One command: it trains the model, builds the inference image, runs it as a container, waits for
+`/health`, fires 500 serialized requests, tears the container down, and writes
+`benchmarks/latency_baseline.md`:
 
-Recorded baseline (local uvicorn worker, serialized requests): mean **1.13 ms**, p95 **1.26 ms**,
-p99 **1.35 ms** over 500 requests.
+- `model (in-process)` — the classifier call with no web layer, the figure Stage 4 compares against
+  the ONNX build.
+- `API (Docker container)` — the full request path.
+
+Pass `--base-url` to measure an already-running instance instead of starting a container. See
+[`benchmarks/latency_baseline.md`](benchmarks/latency_baseline.md).
+
+Recorded baseline (serialized requests, `time.perf_counter_ns`): model **0.28 ms** mean / **0.35 ms**
+p95; API **1.46 ms** mean / **1.65 ms** p95. The request path is dominated by framework and
+serialization overhead, so the Stage 4 comparison focuses on the in-process number.
 
 ## Repository layout
 
