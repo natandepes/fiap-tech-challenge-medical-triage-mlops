@@ -7,13 +7,29 @@ from triage_api.config import DATASET_PATH, DATASET_SIZE, RANDOM_SEED
 from triage_api.enums import Urgency
 
 _BODY_SITES = [
-    "chest", "abdomen", "left lung", "right lung", "cranium", "lumbar spine",
-    "pelvis", "left kidney", "liver", "left knee", "right shoulder", "sinuses",
+    "chest",
+    "abdomen",
+    "left lung",
+    "right lung",
+    "cranium",
+    "lumbar spine",
+    "pelvis",
+    "left kidney",
+    "liver",
+    "left knee",
+    "right shoulder",
+    "sinuses",
 ]
 
 _MODALITIES = [
-    "radiograph", "CT scan", "ultrasound", "MRI", "laboratory panel",
-    "physical examination", "ECG", "clinical note",
+    "radiograph",
+    "CT scan",
+    "ultrasound",
+    "MRI",
+    "laboratory panel",
+    "physical examination",
+    "ECG",
+    "clinical note",
 ]
 
 _FINDINGS = {

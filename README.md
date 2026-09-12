@@ -1,11 +1,14 @@
 # Medical Triage MLOps — Tech Challenge Phase 3
 
+![CI](https://github.com/natandepes/fiap-tech-challenge-medical-triage-mlops/actions/workflows/ci.yml/badge.svg)
+
 Automatic triage of free-text medical reports. A lightweight NLP classifier assigns an urgency
 level — `normal`, `attention`, or `urgent` — and is served as a REST API in a Docker container.
 The project's focus is the model lifecycle end to end: CI/CD, orchestrated retraining, monitoring,
 and latency optimization.
 
-Status: **Stage 1 complete** (architecture decision + API in Docker + latency baseline).
+Status: **Stage 1 & 2 complete** (architecture decision + API in Docker + latency baseline;
+CI/CD pipeline + orchestrated retraining DAG).
 
 ## Architecture decision (Stage 1)
 
@@ -68,6 +71,7 @@ becomes the ingestion task of the Airflow DAG.
 make install        # uv sync --extra dev
 make train          # generate dataset + train -> models/model.joblib
 make serve          # uvicorn on http://localhost:8000
+make latency        # record the latency baseline -> benchmarks/
 ```
 
 ### Docker
@@ -100,33 +104,84 @@ curl -s localhost:8000/predict \
 
 ## Latency baseline
 
-Run against the container:
-
 ```bash
-make docker-run                       # in one shell
-uv run python scripts/measure_latency.py   # in another
+make latency
 ```
 
-The script fires N requests at `/predict` and writes p50/p95/p99 to
-`benchmarks/latency_baseline.md`. Stage 4 re-runs the same script against the ONNX build and records
-the before/after comparison. See [`benchmarks/latency_baseline.md`](benchmarks/latency_baseline.md).
+One command: it trains the model, builds the inference image, runs it as a container, waits for
+`/health`, fires 500 serialized requests, tears the container down, and writes
+`benchmarks/latency_baseline.md`:
 
-Recorded baseline (local uvicorn worker, serialized requests): mean **1.13 ms**, p95 **1.26 ms**,
-p99 **1.35 ms** over 500 requests.
+- `model (in-process)` — the classifier call with no web layer, the figure Stage 4 compares against
+  the ONNX build.
+- `API (Docker container)` — the full request path.
+
+Pass `--base-url` to measure an already-running instance instead of starting a container. See
+[`benchmarks/latency_baseline.md`](benchmarks/latency_baseline.md).
+
+Recorded baseline (serialized requests, `time.perf_counter_ns`): model **0.28 ms** mean / **0.35 ms**
+p95; API **1.46 ms** mean / **1.65 ms** p95. The request path is dominated by framework and
+serialization overhead, so the Stage 4 comparison focuses on the in-process number.
+
+## Stage 2 — CI/CD and retraining pipeline
+
+### CI/CD (GitHub Actions)
+
+The `CI` workflow (`.github/workflows/ci.yml`) runs on every `push` and `pull_request`, with four
+jobs in parallel:
+
+| Job | What it guards |
+| --- | --- |
+| `lint` | `ruff check .` and `ruff format --check .` — style and formatting |
+| `test` | `pytest -q` — API and dataset smoke tests (Airflow absent, so the DAG test skips) |
+| `dag` | installs the `airflow` extra, runs `airflow db migrate` then `airflow dags test triage_retraining 2026-01-01`, and finally `pytest tests/test_dag.py` so the DagBag assertions run with Airflow present |
+| `docker-build` | builds the inference image and curls `/health` on the running container |
+
+All jobs use `astral-sh/setup-uv` with the lockfile, so CI resolves the exact same dependency set
+as local development. The badge under the title reflects the latest run on the default branch.
+
+### Retraining pipeline (Airflow)
+
+`dags/triage_retraining_dag.py` defines the `triage_retraining` DAG — a TaskFlow pipeline:
+
+```
+ingest ──> train ──> evaluate ──> publish
+```
+
+- **ingest** — regenerates the synthetic corpus (`triage_api.dataset.build_dataset`).
+- **train** — fits the TF-IDF + Logistic Regression pipeline, writes `models/model.joblib` and
+  `models/metrics.json`.
+- **evaluate** — a macro-F1 gate: the run fails if `macro_f1` is below `TRIAGE_MIN_MACRO_F1`
+  (default `0.80`).
+- **publish** — promotes the artifact to `models/registry/model-<utc-timestamp>.joblib` and updates
+  `models/registry/latest.txt`.
+
+Schedule: `@weekly`, `catchup=False`. `models/` is gitignored, so DAG runs leave no commit noise.
+
+### Run the DAG locally
+
+```bash
+uv sync --extra airflow
+make dag-test        # airflow dags test triage_retraining 2026-01-01
+```
+
+`airflow dags test` executes the whole DAG against a local SQLite metastore — no scheduler or
+webserver needed.
 
 ## Repository layout
 
 ```
 src/triage_api/      FastAPI app, model wrapper, dataset generator, training
+dags/                Airflow retraining DAG
 scripts/             latency measurement
-tests/               API + dataset smoke tests
+tests/               API + dataset + DAG smoke tests
 benchmarks/          recorded latency numbers
+.github/workflows/   CI pipeline (lint, test, dag, docker-build)
 Dockerfile           self-contained inference image (trains at build time)
 ```
 
 ## Roadmap
 
-- **Stage 2** — GitHub Actions (lint + test on push) and an Airflow DAG (ingest → train → save).
 - **Stage 3** — `prometheus_client` instrumentation and a `docker-compose.yml` bringing up API +
   Prometheus + Grafana with a dashboard.
 - **Stage 4** — ONNX Runtime export and the documented latency comparison.

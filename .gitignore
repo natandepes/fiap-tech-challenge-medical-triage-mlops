@@ -27,6 +27,13 @@ data/*
 !data/sample_triage.csv
 models/
 
+# Airflow local state
+airflow.db
+airflow.cfg
+logs/
+.airflow/
+dags/__pycache__/
+
 # Environment
 .env
 
