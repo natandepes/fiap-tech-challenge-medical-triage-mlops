@@ -1,4 +1,5 @@
-.PHONY: install data train test lint format serve docker-build docker-run latency dag-test
+.PHONY: install data train test lint format serve docker-build docker-run latency dag-test \
+	monitoring-up monitoring-down load
 
 install:
 	uv sync --extra dev
@@ -33,3 +34,13 @@ docker-run:
 
 latency: train docker-build
 	uv run python scripts/measure_latency.py
+
+monitoring-up:
+	docker compose up --build -d
+	@echo "API http://localhost:8000  Prometheus http://localhost:9090  Grafana http://localhost:3000 (admin/admin)"
+
+monitoring-down:
+	docker compose down
+
+load:
+	uv run python scripts/generate_load.py

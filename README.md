@@ -7,8 +7,8 @@ level — `normal`, `attention`, or `urgent` — and is served as a REST API in 
 The project's focus is the model lifecycle end to end: CI/CD, orchestrated retraining, monitoring,
 and latency optimization.
 
-Status: **Stage 1 & 2 complete** (architecture decision + API in Docker + latency baseline;
-CI/CD pipeline + orchestrated retraining DAG).
+Status: **Stage 1, 2 & 3 complete** (architecture decision + API in Docker + latency baseline;
+CI/CD pipeline + orchestrated retraining DAG; Prometheus + Grafana monitoring stack).
 
 ## Architecture decision (Stage 1)
 
@@ -168,20 +168,70 @@ make dag-test        # airflow dags test triage_retraining 2026-01-01
 `airflow dags test` executes the whole DAG against a local SQLite metastore — no scheduler or
 webserver needed.
 
+## Stage 3 — Monitoring and observability
+
+### Instrumentation
+
+`src/triage_api/metrics.py` uses `prometheus_client` to expose:
+
+| Metric | Type | Labels | What it shows |
+| --- | --- | --- | --- |
+| `http_requests_total` | Counter | `method`, `path`, `status` | request count, sliceable by route and status code |
+| `http_request_duration_seconds` | Histogram | `method`, `path` | request latency, for rate/percentile queries |
+| `triage_predictions_total` | Counter | `urgency` | predictions served, by urgency label |
+
+An ASGI middleware records the first two on every request except `/metrics` itself (so scraping the
+endpoint doesn't inflate its own counters); `GET /metrics` renders the Prometheus text exposition
+format directly — no sub-app mounting, so there is no trailing-slash redirect to trip up `curl` or a
+scraper.
+
+### Bring up the stack
+
+```bash
+make monitoring-up     # docker compose up --build -d  (api, prometheus, grafana)
+make load              # scripts/generate_load.py — fires demo traffic at the API
+make monitoring-down   # docker compose down
+```
+
+| Service | URL | Notes |
+| --- | --- | --- |
+| API | http://localhost:8000 | same image as Stage 1 |
+| Prometheus | http://localhost:9090 | scrapes `api:8000/metrics` every 5s (`monitoring/prometheus.yml`) |
+| Grafana | http://localhost:3000 | `admin` / `admin`; anonymous viewer access enabled |
+
+### Dashboard
+
+Grafana auto-provisions the **Medical Triage API** dashboard from
+`monitoring/grafana/dashboards/triage-api.json` (committed, reproducible — no manual click-through
+needed). Panels:
+
+1. **Request rate by status** — `sum by (status) (rate(http_requests_total[1m]))`
+2. **p95 request latency** — `histogram_quantile(0.95, ...http_request_duration_seconds_bucket...)`
+3. **Error rate (5xx)** — 5xx request rate over total request rate
+4. **Total requests** and **predictions by urgency** — traffic volume and the model's label mix
+
+`make load` is the easy-to-forget step that gives the dashboard something to show — it fires a mix
+of valid triage reports and a few invalid payloads (for the error-rate panel) at a running API.
+
+### Test coverage
+
+`tests/test_metrics.py` asserts `/metrics` exposes the three metric families and that the request
+and prediction counters increment after real calls.
+
 ## Repository layout
 
 ```
-src/triage_api/      FastAPI app, model wrapper, dataset generator, training
+src/triage_api/      FastAPI app, model wrapper, dataset generator, training, metrics
 dags/                Airflow retraining DAG
-scripts/             latency measurement
-tests/               API + dataset + DAG smoke tests
+scripts/             latency measurement, demo load generator
+monitoring/          Prometheus scrape config + Grafana provisioning and dashboard JSON
+tests/               API + dataset + DAG + metrics smoke tests
 benchmarks/          recorded latency numbers
 .github/workflows/   CI pipeline (lint, test, dag, docker-build)
 Dockerfile           self-contained inference image (trains at build time)
+docker-compose.yml   API + Prometheus + Grafana monitoring stack
 ```
 
 ## Roadmap
 
-- **Stage 3** — `prometheus_client` instrumentation and a `docker-compose.yml` bringing up API +
-  Prometheus + Grafana with a dashboard.
 - **Stage 4** — ONNX Runtime export and the documented latency comparison.

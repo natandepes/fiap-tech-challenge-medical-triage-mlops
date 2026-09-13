@@ -1,8 +1,9 @@
 from triage_api.enums import Urgency
+from triage_api.metrics import HEALTH_PATH
 
 
 def test_health_reports_model_loaded(client):
-    body = client.get("/health").json()
+    body = client.get(HEALTH_PATH).json()
     assert body["status"] == "ok"
     assert body["model_loaded"] is True
 
