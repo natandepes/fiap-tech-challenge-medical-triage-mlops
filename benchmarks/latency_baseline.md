@@ -1,6 +1,6 @@
 # Latency baseline (Stage 1)
 
-- Measured at: 2026-09-15T01:11:04+00:00
+- Measured at: 2026-09-15T01:36:26+00:00
 - Samples per stage: 500 (after 25 warmup)
 - Model: TF-IDF + Logistic Regression (scikit-learn), no optimization
 - Inputs: real abstracts from `data/sample_triage.csv`
@@ -9,8 +9,8 @@
 
 | Stage                    | mean (ms) | p50   | p95   | p99   | max    |
 | ------------------------ | --------- | ----- | ----- | ----- | ------ |
-| `model (in-process)`     | 0.321     | 0.303 | 0.413 | 0.486 | 0.651  |
-| `API (Docker container)` | 1.804     | 1.714 | 1.913 | 2.001 | 41.626 |
+| `model (in-process)`     | 0.322     | 0.307 | 0.414 | 0.501 | 0.718  |
+| `API (Docker container)` | 1.791     | 1.703 | 1.911 | 2.042 | 38.698 |
 
 `model (in-process)` is the classifier call with no web layer. `API (Docker container)` is the full request path: the same prediction plus HTTP, FastAPI validation and JSON serialization.
 
