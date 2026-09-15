@@ -1,5 +1,5 @@
 .PHONY: install data train test lint format serve docker-build docker-run latency dag-test \
-	monitoring-up monitoring-down load
+	monitoring-up monitoring-down load export-onnx latency-onnx
 
 install:
 	uv sync --extra dev
@@ -34,6 +34,13 @@ docker-run:
 
 latency: train docker-build
 	uv run python scripts/measure_latency.py
+
+export-onnx: train
+	uv run python -m triage_api.onnx_export
+	uv run python -m triage_api.onnx_validate
+
+latency-onnx: export-onnx
+	uv run python scripts/measure_onnx_latency.py
 
 monitoring-up:
 	docker compose up --build -d
