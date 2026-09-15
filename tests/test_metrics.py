@@ -1,3 +1,8 @@
+from triage_api.samples import sample_reports
+
+REPORT = sample_reports(1)[0]
+
+
 def test_metrics_endpoint_exposes_expected_families(client):
     response = client.get("/metrics")
     assert response.status_code == 200
@@ -10,18 +15,13 @@ def test_metrics_endpoint_exposes_expected_families(client):
 def test_request_counter_increments_after_predict(client):
     before = client.get("/metrics").text.count('http_requests_total{method="POST",path="/predict"')
 
-    client.post("/predict", json={"text": "Routine follow-up, no acute findings."})
+    client.post("/predict", json={"text": REPORT})
 
     after = client.get("/metrics").text.count('http_requests_total{method="POST",path="/predict"')
     assert after >= before
 
 
 def test_prediction_counter_records_the_predicted_urgency(client):
-    response = client.post(
-        "/predict",
-        json={"text": "Large pulmonary embolism with right heart strain."},
-    )
-    urgency = response.json()["urgency"]
+    urgency = client.post("/predict", json={"text": REPORT}).json()["urgency"]
 
-    metrics_body = client.get("/metrics").text
-    assert f'triage_predictions_total{{urgency="{urgency}"}}' in metrics_body
+    assert f'triage_predictions_total{{urgency="{urgency}"}}' in client.get("/metrics").text

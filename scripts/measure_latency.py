@@ -14,15 +14,9 @@ import httpx
 
 from triage_api.config import MODEL_PATH
 from triage_api.model import TriageModel
+from triage_api.samples import sample_reports
 
-SAMPLE_REPORTS = [
-    "CT scan of the chest: no acute abnormality identified. Routine review.",
-    "The laboratory panel demonstrates mildly elevated inflammatory markers.",
-    "Impression: acute intracranial hemorrhage on CT scan of the cranium. "
-    "Immediate clinical attention required.",
-    "MRI of the lumbar spine: mild degenerative changes consistent with age.",
-    "Reported signs of septic shock with rising lactate. Rapid deterioration noted.",
-]
+SAMPLE_REPORTS = sample_reports()
 
 BENCHMARKS_DIR = Path(__file__).resolve().parent.parent / "benchmarks"
 DOCKER_IMAGE = "triage-api:latest"
@@ -127,6 +121,7 @@ def to_markdown(results: list[dict], requests: int, warmup: int) -> str:
         f"- Measured at: {datetime.now(UTC).isoformat(timespec='seconds')}",
         f"- Samples per stage: {requests} (after {warmup} warmup)",
         "- Model: TF-IDF + Logistic Regression (scikit-learn), no optimization",
+        "- Inputs: real abstracts from `data/sample_triage.csv`",
         "- Timer: `time.perf_counter_ns`, serialized requests, no concurrency",
         f"- API served from the `{DOCKER_IMAGE}` container over loopback",
         "",
