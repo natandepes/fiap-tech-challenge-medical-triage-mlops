@@ -281,7 +281,8 @@ needed). Panels:
 1. **Request rate by status** — `sum by (status) (rate(http_requests_total[1m]))`
 2. **p95 request latency** — `histogram_quantile(0.95, ...http_request_duration_seconds_bucket...)`
 3. **Error rate (5xx)** — 5xx request rate over total request rate
-4. **Total requests** and **predictions by urgency** — traffic volume and the model's label mix
+4. **Error rate (4xx)** — 4xx request rate over total request rate
+5. **Total requests** and **predictions by urgency** — traffic volume and the model's label mix
 
 `make load` is the easy-to-forget step that gives the dashboard something to show — it fires a mix
 of valid triage reports and a few invalid payloads (for the error-rate panel) at a running API.

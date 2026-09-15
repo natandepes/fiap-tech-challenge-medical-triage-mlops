@@ -76,9 +76,38 @@
     },
     {
       "id": 4,
+      "title": "Error rate (4xx)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"4..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+          "legendFormat": "error rate",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
       "title": "Total requests",
       "type": "stat",
-      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 8 },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
       "fieldConfig": {
         "defaults": { "unit": "none" },
         "overrides": []
@@ -92,10 +121,10 @@
       ]
     },
     {
-      "id": 5,
+      "id": 6,
       "title": "Predictions by urgency",
       "type": "bargauge",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
       "fieldConfig": {
         "defaults": { "unit": "none" },
         "overrides": []
