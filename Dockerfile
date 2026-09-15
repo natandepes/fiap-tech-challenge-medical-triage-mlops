@@ -12,12 +12,14 @@ COPY src ./src
 RUN pip install --no-cache-dir .
 
 RUN python -m triage_api.train
+RUN python -m triage_api.onnx_export
 
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    TRIAGE_MODEL_DIR=/app/models
+    TRIAGE_MODEL_DIR=/app/models \
+    TRIAGE_MODEL_BACKEND=onnx
 
 WORKDIR /app
 

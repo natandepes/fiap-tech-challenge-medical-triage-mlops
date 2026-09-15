@@ -1,161 +1,84 @@
-import random
+from __future__ import annotations
+
+import urllib.request
 from pathlib import Path
 
 import pandas as pd
 
-from triage_api.config import DATASET_PATH, DATASET_SIZE, RANDOM_SEED
-from triage_api.enums import Urgency
+from triage_api.config import (
+    CORPUS_BASE_URL,
+    CORPUS_FILES,
+    DATASET_PATH,
+    RANDOM_SEED,
+    RAW_DATA_DIR,
+    SAMPLE_DATASET_PATH,
+    SAMPLE_SIZE,
+)
+from triage_api.enums import Condition, Urgency
 
-_BODY_SITES = [
-    "chest",
-    "abdomen",
-    "left lung",
-    "right lung",
-    "cranium",
-    "lumbar spine",
-    "pelvis",
-    "left kidney",
-    "liver",
-    "left knee",
-    "right shoulder",
-    "sinuses",
-]
+TEXT_COLUMN = "medical_abstract"
+LABEL_COLUMN = "condition_label"
 
-_MODALITIES = [
-    "radiograph",
-    "CT scan",
-    "ultrasound",
-    "MRI",
-    "laboratory panel",
-    "physical examination",
-    "ECG",
-    "clinical note",
-]
-
-_FINDINGS = {
-    Urgency.NORMAL: [
-        "no acute abnormality identified",
-        "findings within normal limits",
-        "unremarkable study",
-        "mild degenerative changes consistent with age",
-        "stable appearance compared with the prior exam",
-        "no evidence of fracture or dislocation",
-        "clear lung fields with no consolidation",
-        "no focal lesion detected",
-        "results within the reference range",
-        "trace physiologic fluid, not clinically significant",
-    ],
-    Urgency.ATTENTION: [
-        "moderate findings that warrant outpatient follow-up",
-        "a small indeterminate nodule, recommend surveillance imaging",
-        "mildly elevated inflammatory markers",
-        "non-obstructing calculus without hydronephrosis",
-        "chronic changes that should be correlated clinically",
-        "borderline cardiomegaly, suggest echocardiography",
-        "a stable but abnormal lesion, non-urgent referral advised",
-        "low-grade findings requiring a scheduled review",
-        "mild pleural thickening, follow-up in a few weeks",
-        "abnormal but not immediately threatening result",
-    ],
-    Urgency.URGENT: [
-        "acute intracranial hemorrhage",
-        "large pulmonary embolism with right heart strain",
-        "findings compatible with acute myocardial infarction",
-        "free intraperitoneal air suggesting perforation",
-        "tension pneumothorax with mediastinal shift",
-        "critical potassium value requiring immediate action",
-        "signs of septic shock with rising lactate",
-        "acute ischemic stroke in the middle cerebral artery territory",
-        "ruptured aortic aneurysm with active extravasation",
-        "impending respiratory failure with severe hypoxemia",
-    ],
+URGENCY_BY_CONDITION = {
+    Condition.NEOPLASMS: Urgency.ATTENTION,
+    Condition.DIGESTIVE_SYSTEM: Urgency.NORMAL,
+    Condition.NERVOUS_SYSTEM: Urgency.ATTENTION,
+    Condition.CARDIOVASCULAR: Urgency.URGENT,
+    Condition.GENERAL_PATHOLOGICAL: Urgency.NORMAL,
 }
 
-_TEMPLATES = [
-    "{modality} of the {site}: {finding}.",
-    "The {modality} demonstrates {finding}.",
-    "Impression: {finding} on {modality} of the {site}.",
-    "Reported {finding}. Correlate with {modality} history.",
-    "{site} {modality} performed; {finding}.",
-    "Clinical summary: {finding}; obtained via {modality}.",
-]
 
-_QUALIFIERS = {
-    Urgency.NORMAL: ["Patient is comfortable.", "No new complaints.", "Routine review.", ""],
-    Urgency.ATTENTION: [
-        "Symptoms are stable.",
-        "Patient reports mild discomfort.",
-        "Non-emergent.",
-        "",
-    ],
-    Urgency.URGENT: [
-        "Patient is hemodynamically unstable.",
-        "Immediate clinical attention required.",
-        "Rapid deterioration noted.",
-        "",
-    ],
-}
-
-_SHARED_FILLER = [
-    "History and physical documented separately.",
-    "Comparison made with available priors.",
-    "Technique and contrast administration as per protocol.",
-    "Findings discussed with the referring team.",
-    "Report dictated and electronically signed.",
-    "",
-]
-
-_NEIGHBOURS = {
-    Urgency.NORMAL: Urgency.ATTENTION,
-    Urgency.ATTENTION: Urgency.NORMAL,
-    Urgency.URGENT: Urgency.ATTENTION,
-}
-
-_AMBIGUITY_RATE = 0.18
+def download_corpus(raw_dir: Path = RAW_DATA_DIR) -> list[Path]:
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for filename in CORPUS_FILES:
+        destination = raw_dir / filename
+        if not destination.exists():
+            urllib.request.urlretrieve(f"{CORPUS_BASE_URL}/{filename}", destination)
+        paths.append(destination)
+    return paths
 
 
-def _make_row(rng: random.Random, label: Urgency) -> str:
-    template = rng.choice(_TEMPLATES)
-    sentence = template.format(
-        modality=rng.choice(_MODALITIES),
-        site=rng.choice(_BODY_SITES),
-        finding=rng.choice(_FINDINGS[label]),
+def load_corpus(raw_dir: Path = RAW_DATA_DIR) -> pd.DataFrame:
+    splits = [pd.read_csv(path) for path in download_corpus(raw_dir)]
+    return pd.concat(splits, ignore_index=True)
+
+
+def to_triage_frame(corpus: pd.DataFrame, seed: int = RANDOM_SEED) -> pd.DataFrame:
+    frame = pd.DataFrame(
+        {
+            "text": corpus[TEXT_COLUMN].str.strip(),
+            "urgency": corpus[LABEL_COLUMN].map(URGENCY_BY_CONDITION).map(str),
+        }
     )
-
-    parts = [sentence]
-    if rng.random() < _AMBIGUITY_RATE:
-        parts.append(f"Also noted: {rng.choice(_FINDINGS[_NEIGHBOURS[label]])}.")
-        parts.append(rng.choice(_SHARED_FILLER))
-    else:
-        parts.append(rng.choice(_QUALIFIERS[label]))
-        parts.append(rng.choice(_SHARED_FILLER))
-
-    return " ".join(part for part in parts if part).strip()
+    frame = frame[frame["text"].str.len() > 0].dropna()
+    return frame.sample(frac=1.0, random_state=seed).reset_index(drop=True)
 
 
-def generate_dataframe(n_samples: int = DATASET_SIZE, seed: int = RANDOM_SEED) -> pd.DataFrame:
-    rng = random.Random(seed)
-    per_label = n_samples // len(Urgency)
-    rows = [
-        {"text": _make_row(rng, label), "urgency": label.value}
-        for label in Urgency
-        for _ in range(per_label)
-    ]
-    rng.shuffle(rows)
-    return pd.DataFrame(rows, columns=["text", "urgency"])
-
-
-def build_dataset(
-    path: Path = DATASET_PATH,
-    n_samples: int = DATASET_SIZE,
-    seed: int = RANDOM_SEED,
-) -> Path:
-    frame = generate_dataframe(n_samples, seed)
+def build_dataset(path: Path = DATASET_PATH, raw_dir: Path = RAW_DATA_DIR) -> Path:
+    frame = to_triage_frame(load_corpus(raw_dir))
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(path, index=False)
     return path
 
 
+def build_sample(
+    path: Path = SAMPLE_DATASET_PATH,
+    n_samples: int = SAMPLE_SIZE,
+    seed: int = RANDOM_SEED,
+) -> Path:
+    frame = to_triage_frame(load_corpus())
+    per_label = n_samples // len(Urgency)
+    sample = (
+        frame.groupby("urgency")
+        .head(per_label)
+        .sample(frac=1.0, random_state=seed)
+        .reset_index(drop=True)
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sample.to_csv(path, index=False)
+    return path
+
+
 if __name__ == "__main__":
-    written = build_dataset()
-    print(f"wrote {written}")
+    print(f"wrote {build_dataset()}")

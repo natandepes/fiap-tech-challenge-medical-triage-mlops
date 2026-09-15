@@ -1,6 +1,7 @@
 import pytest
 
-from triage_api.config import MODEL_PATH
+from triage_api.config import MODEL_PATH, ONNX_MODEL_PATH
+from triage_api.onnx_export import export_to_onnx
 from triage_api.train import train
 
 
@@ -8,6 +9,8 @@ from triage_api.train import train
 def trained_model():
     if not MODEL_PATH.exists():
         train()
+    if not ONNX_MODEL_PATH.exists():
+        export_to_onnx()
     return MODEL_PATH
 
 

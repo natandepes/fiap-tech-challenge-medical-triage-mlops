@@ -19,17 +19,39 @@ from triage_api.config import (
 )
 from triage_api.dataset import build_dataset
 
+ONNX_SAFE_TOKEN_PATTERN = r"\w\w+"
 
-def _load_dataset(path: Path) -> pd.DataFrame:
+
+def load_dataset(path: Path) -> pd.DataFrame:
     if not path.exists():
         build_dataset(path)
     return pd.read_csv(path)
 
 
+def split_dataset(
+    frame: pd.DataFrame,
+) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
+    return train_test_split(
+        frame["text"],
+        frame["urgency"],
+        test_size=0.2,
+        random_state=RANDOM_SEED,
+        stratify=frame["urgency"],
+    )
+
+
 def build_pipeline() -> Pipeline:
     return Pipeline(
         [
-            ("tfidf", TfidfVectorizer(ngram_range=(1, 2), min_df=2, sublinear_tf=True)),
+            (
+                "tfidf",
+                TfidfVectorizer(
+                    ngram_range=(1, 1),
+                    min_df=2,
+                    sublinear_tf=True,
+                    token_pattern=ONNX_SAFE_TOKEN_PATTERN,
+                ),
+            ),
             (
                 "clf",
                 LogisticRegression(max_iter=1000, C=4.0, class_weight="balanced"),
@@ -39,14 +61,8 @@ def build_pipeline() -> Pipeline:
 
 
 def train(dataset_path: Path = DATASET_PATH, model_path: Path = MODEL_PATH) -> dict:
-    frame = _load_dataset(dataset_path)
-    x_train, x_test, y_train, y_test = train_test_split(
-        frame["text"],
-        frame["urgency"],
-        test_size=0.2,
-        random_state=RANDOM_SEED,
-        stratify=frame["urgency"],
-    )
+    frame = load_dataset(dataset_path)
+    x_train, x_test, y_train, y_test = split_dataset(frame)
 
     pipeline = build_pipeline()
     pipeline.fit(x_train, y_train)

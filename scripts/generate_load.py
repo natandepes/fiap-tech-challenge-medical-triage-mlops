@@ -7,18 +7,9 @@ import time
 import httpx
 
 from triage_api.metrics import HEALTH_PATH
+from triage_api.samples import sample_reports
 
-REPORTS = [
-    "CT scan of the chest: no acute abnormality identified. Routine review.",
-    "The laboratory panel demonstrates mildly elevated inflammatory markers.",
-    "Impression: acute intracranial hemorrhage on CT scan of the cranium. "
-    "Immediate clinical attention required.",
-    "MRI of the lumbar spine: mild degenerative changes consistent with age.",
-    "Reported signs of septic shock with rising lactate. Rapid deterioration noted.",
-    "Radiograph of the right shoulder: no evidence of fracture or dislocation.",
-    "Large pulmonary embolism with right heart strain. Patient is hemodynamically unstable.",
-    "Non-obstructing calculus without hydronephrosis. Non-emergent.",
-]
+REPORTS = sample_reports(limit=40)
 
 INVALID_PAYLOADS = [{"text": ""}, {"text": "   "}, {}]
 
