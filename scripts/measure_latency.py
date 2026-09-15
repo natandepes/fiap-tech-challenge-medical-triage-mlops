@@ -38,7 +38,7 @@ def to_markdown(results: list[dict], requests: int, warmup: int, api_source: str
         "serialization.",
         "",
         "Stage 4 re-runs *both* of these measurements against the ONNX build, so the optimized "
-        "numbers are comparable to this baseline stage for stage — see "
+        "numbers are comparable to this baseline stage for stage; see "
         "[`onnx_latency_comparison.md`](onnx_latency_comparison.md).",
         "",
         "Reproduce: `make latency`.",

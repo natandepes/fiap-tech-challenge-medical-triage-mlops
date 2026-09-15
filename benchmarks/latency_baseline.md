@@ -14,6 +14,6 @@
 
 `model (in-process)` is the classifier call with no web layer. `API (Docker container)` is the full request path: the same prediction plus HTTP, FastAPI validation and JSON serialization.
 
-Stage 4 re-runs *both* of these measurements against the ONNX build, so the optimized numbers are comparable to this baseline stage for stage — see [`onnx_latency_comparison.md`](onnx_latency_comparison.md).
+Stage 4 re-runs *both* of these measurements against the ONNX build, so the optimized numbers are comparable to this baseline stage for stage; see [`onnx_latency_comparison.md`](onnx_latency_comparison.md).
 
 Reproduce: `make latency`.

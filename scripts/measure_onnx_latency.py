@@ -52,7 +52,7 @@ def to_markdown(
         "",
         "## Model only (in-process)",
         "",
-        "The classifier call with no web layer — this isolates the optimization itself.",
+        "The classifier call with no web layer; this isolates the optimization itself.",
         "",
         metrics_table("Model", model_results, decimals=4),
         "",

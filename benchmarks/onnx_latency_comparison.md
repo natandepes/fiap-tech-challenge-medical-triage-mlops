@@ -9,7 +9,7 @@
 
 ## Model only (in-process)
 
-The classifier call with no web layer — this isolates the optimization itself.
+The classifier call with no web layer; this isolates the optimization itself.
 
 | Model                   | mean (ms) | p50    | p95    | p99    | max    |
 | ----------------------- | --------- | ------ | ------ | ------ | ------ |
