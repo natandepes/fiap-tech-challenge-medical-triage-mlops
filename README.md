@@ -111,7 +111,8 @@ checkout can run everything except training without network access.
 make install        # uv sync --extra dev
 make train          # download corpus + train -> models/model.joblib
 make serve          # uvicorn on http://localhost:8000
-make latency        # record the latency baseline -> benchmarks/
+make latency        # record the pre-optimization baseline -> benchmarks/
+make latency-onnx   # record the sklearn vs. ONNX comparison -> benchmarks/
 ```
 
 ### Docker
@@ -155,16 +156,23 @@ One command: it trains the model, builds the inference image, runs it as a conta
 `/health`, fires 500 serialized requests, tears the container down, and writes
 `benchmarks/latency_baseline.md`:
 
-- `model (in-process)` — the classifier call with no web layer, the figure Stage 4 compares against
-  the ONNX build.
-- `API (Docker container)` — the full request path.
+- `model (in-process)` — the classifier call with no web layer.
+- `API (Docker container)` — the full request path: the same prediction plus HTTP, FastAPI
+  validation and JSON serialization.
 
-Pass `--base-url` to measure an already-running instance instead of starting a container. See
+This is the **pre-optimization** baseline, so the container is started with
+`TRIAGE_MODEL_BACKEND=sklearn` and the script asserts against `/health` that the container really
+is serving that backend before it times anything. Without that pin the measurement would silently
+drift: the image defaults to the ONNX backend (see [Stage 4](#stage-4--latency-optimization-and-delivery)),
+so an unpinned re-run would benchmark the optimized model and still label itself "no optimization".
+
+Recorded baseline (serialized requests, `time.perf_counter_ns`): model **0.330 ms** mean /
+**0.424 ms** p95; API **1.830 ms** mean / **1.947 ms** p95. Stage 4 re-runs *both* of these against
+the ONNX build, so the before/after numbers compare like with like at each level.
+
+Pass `--base-url` to measure an already-running instance instead of starting a container; the
+report then records whichever backend that instance reports. See
 [`benchmarks/latency_baseline.md`](benchmarks/latency_baseline.md).
-
-Recorded baseline (serialized requests, `time.perf_counter_ns`): model **0.311 ms** mean / **0.387 ms**
-p95; API **1.392 ms** mean / **1.581 ms** p95. The request path is dominated by framework and
-serialization overhead, so the Stage 4 comparison focuses on the in-process number.
 
 ## Stage 2 — CI/CD and retraining pipeline
 
@@ -315,20 +323,35 @@ export TRIAGE_MODEL_BACKEND=sklearn   # rollback, no code change needed
 ### Latency comparison
 
 ```bash
-make latency-onnx   # trains + exports + validates + runs scripts/measure_onnx_latency.py
+make latency-onnx   # trains + exports + validates + builds the image + measures
 ```
 
-In-process, same methodology as the Stage 1 `model (in-process)` baseline (500 requests, 25
-warmup, `time.perf_counter_ns`, no concurrency):
+The optimization is measured at **both levels the project cares about**, in a single run on one
+machine (500 requests, 25 warmup, `time.perf_counter_ns`, no concurrency, same weights on both
+sides — only the backend changes).
+
+**Model only, in-process** — isolates the optimization itself:
 
 | Model | mean (ms) | p50 | p95 | p99 | max |
 | --- | --- | --- | --- | --- | --- |
-| `scikit-learn pipeline` | 0.3118 | 0.2981 | 0.3822 | 0.4317 | 0.5410 |
-| `ONNX Runtime` | 0.1289 | 0.1175 | 0.1660 | 0.1783 | 0.1859 |
+| `scikit-learn pipeline` | 0.3419 | 0.3257 | 0.4497 | 0.5064 | 0.6797 |
+| `ONNX Runtime` | 0.1620 | 0.1615 | 0.2077 | 0.2511 | 0.3170 |
 
-**ONNX Runtime is 2.42x faster** than the scikit-learn pipeline on mean latency, for the same
-inputs and the same model weights, and the exported artifact is 954 KB against 1.0 MB for the
-joblib pipeline. Full output:
+**ONNX Runtime is 2.11x faster** on mean latency, and the exported artifact is 954 KB against
+1.0 MB for the joblib pipeline.
+
+**End to end, API in the Docker container** — the same image run twice with only
+`TRIAGE_MODEL_BACKEND` changed, measured exactly like the Stage 1 baseline:
+
+| Service | mean (ms) | p50 | p95 | p99 | max |
+| --- | --- | --- | --- | --- | --- |
+| `API + scikit-learn` | 1.712 | 1.697 | 1.902 | 2.050 | 2.551 |
+| `API + ONNX Runtime` | 1.450 | 1.430 | 1.667 | 1.795 | 1.949 |
+
+End to end the optimization is worth **1.18x**. The gain is smaller because HTTP, FastAPI
+validation and JSON serialization add a fixed ~1.29 ms per request that no model optimization can
+remove — the honest framing is "the model got 2.11x faster; the service it is wrapped in got
+1.18x faster", and the second number is the one a user of the API actually feels. Full output:
 [`benchmarks/onnx_latency_comparison.md`](benchmarks/onnx_latency_comparison.md).
 
 ### A note on ONNX parity
@@ -346,7 +369,7 @@ abstracts:
    identical vocabulary and identical accuracy.
 2. **Bigrams made ONNX *slower* than scikit-learn.** With `ngram_range=(1, 2)` the vocabulary is
    233k features, the ONNX artifact is 11.2 MB and inference measured **0.6x** — a slowdown.
-   Unigrams cut the artifact to 954 KB, run 2.42x faster, *and* score better (0.635 vs. 0.612
+   Unigrams cut the artifact to 954 KB, run 2.11x faster, *and* score better (0.635 vs. 0.612
    macro-F1), since bigrams over long abstracts mostly add sparse noise.
 
 What remains is float32-vs-float64 rounding: the ONNX and scikit-learn labels still disagree on
