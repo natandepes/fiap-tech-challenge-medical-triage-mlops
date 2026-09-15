@@ -39,7 +39,7 @@ export-onnx: train
 	uv run python -m triage_api.onnx_export
 	uv run python -m triage_api.onnx_validate
 
-latency-onnx: export-onnx
+latency-onnx: export-onnx docker-build
 	uv run python scripts/measure_onnx_latency.py
 
 monitoring-up:
