@@ -1,6 +1,6 @@
 # Retraining pipeline (Airflow)
 
-`dags/triage_retraining_dag.py` defines the `triage_retraining` DAG — a TaskFlow pipeline:
+`dags/triage_retraining_dag.py` defines the `triage_retraining` DAG, a TaskFlow pipeline:
 
 ```
 ingest ──> train ──> evaluate ──> export_onnx ──> validate_onnx ──> publish
@@ -28,7 +28,7 @@ uv sync --extra airflow
 make dag-test        # airflow dags test triage_retraining 2026-01-01
 ```
 
-`airflow dags test` executes the whole DAG against a local SQLite metastore — no scheduler or
+`airflow dags test` executes the whole DAG against a local SQLite metastore, with no scheduler or
 webserver needed.
 
 ## Known limitation: `publish` does not feed serving
@@ -39,11 +39,11 @@ but nothing reads those pointers back. The API always loads the fixed paths `mod
 trains and exports its own model at build time (`RUN python -m triage_api.train` /
 `RUN python -m triage_api.onnx_export`), independently of any DAG run. So a completed retraining
 run archives a versioned, validated pair of artifacts, but does not change what a running API
-serves — the registry is a version history, not yet a deployment mechanism.
+serves: the registry is a version history, not yet a deployment mechanism.
 
 The same disconnect shows up in CI: the `dag` job in `.github/workflows/ci.yml` runs the real DAG
 (`airflow dags test`, not a mock) on every push and PR, including a genuine `publish` step, but that
-run happens on a throwaway GitHub Actions runner whose filesystem is discarded when the job ends —
+run happens on a throwaway GitHub Actions runner whose filesystem is discarded when the job ends;
 nothing uploads or persists `models/registry/`. The `docker-build` job in the same workflow has no
 dependency on `dag` and trains its own model independently inside the Docker build. CI therefore
 proves the DAG is functionally correct end to end (the Stage 2 requirement), not that a retrain

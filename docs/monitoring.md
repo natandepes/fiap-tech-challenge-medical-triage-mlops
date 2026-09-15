@@ -12,7 +12,7 @@
 
 An ASGI middleware records the first two on every request except `/metrics` itself, so scraping the
 endpoint doesn't inflate its own counters. `GET /metrics` renders the Prometheus text exposition
-format directly — no sub-app mounting, so there is no trailing-slash redirect to trip up `curl` or a
+format directly, with no sub-app mounting, so there is no trailing-slash redirect to trip up `curl` or a
 scraper.
 
 ## Dashboard queries
@@ -34,7 +34,7 @@ Prometheus scrapes `api:8000/metrics` every 5s (`monitoring/prometheus.yml`).
 ## Generating traffic
 
 `make load` runs `scripts/generate_load.py`, which fires a mix of valid triage reports and a few
-invalid payloads at a running API — the invalid ones are what give the 4xx error-rate panel
+invalid payloads at a running API; the invalid ones are what give the 4xx error-rate panel
 something to plot. Without it the dashboard is live but empty.
 
 ## Test coverage

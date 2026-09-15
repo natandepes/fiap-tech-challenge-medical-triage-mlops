@@ -1,7 +1,7 @@
 # Dataset
 
 [**Medical Abstracts TC Corpus**](https://github.com/sebischair/Medical-Abstracts-TC-Corpus)
-(Schopf, Braun & Matthes, NLPIR '22) — 14,438 real medical abstracts published by the
+(Schopf, Braun & Matthes, NLPIR '22): 14,438 real medical abstracts published by the
 [sebis chair at TU München](https://wwwmatthes.in.tum.de) under CC BY-SA 3.0, downloadable as plain
 CSV with no account required. `triage_api.dataset` downloads both official splits into `data/raw/`
 (cached, so a second run is offline), maps them, and writes `data/triage.csv`.
@@ -10,7 +10,7 @@ CSV with no account required. `triage_api.dataset` downloads both official split
 
 The download URL is **pinned to commit `70a2d91`**, not `main`. A `raw.githubusercontent.com` URL at
 a commit SHA is content-addressed, so the pin makes ingestion reproducible and tamper-evident in one
-move — the recorded accuracy and latency numbers cannot silently drift because an upstream push
+move: the recorded accuracy and latency numbers cannot silently drift because an upstream push
 changed the data. Override with `TRIAGE_CORPUS_BASE_URL` to test against a newer revision.
 
 Both official splits are concatenated and re-split 80/20 (stratified, seed 42) rather than using the
@@ -24,7 +24,7 @@ an explicit, documented mapping:
 
 | Corpus class | Urgency | Rationale |
 | --- | --- | --- |
-| Cardiovascular diseases | `urgent` | Acute coronary syndromes, infarction, aortic events — treatment windows measured in minutes |
+| Cardiovascular diseases | `urgent` | Acute coronary syndromes, infarction, aortic events; treatment windows measured in minutes |
 | Neoplasms | `attention` | Require prompt oncologic workup and staging, but not same-hour intervention |
 | Nervous system diseases | `attention` | Prompt specialist referral; the corpus mixes acute and chronic presentations |
 | Digestive system diseases | `normal` | Predominantly chronic or electively managed in this corpus |
