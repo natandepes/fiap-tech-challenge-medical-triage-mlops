@@ -5,17 +5,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 
 from triage_api import __version__
-from triage_api.config import MODEL_PATH
+from triage_api.config import MODEL_BACKEND
 from triage_api.metrics import HEALTH_PATH, PREDICTION_COUNT, install_metrics
 from triage_api.model import TriageModel
+from triage_api.model_loader import load_model
+from triage_api.onnx_model import OnnxTriageModel
 from triage_api.schemas import HealthResponse, TriageRequest, TriageResponse
 
-_state: dict[str, TriageModel] = {}
+_state: dict[str, TriageModel | OnnxTriageModel] = {}
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    _state["model"] = TriageModel.load(MODEL_PATH)
+    _state["model"] = load_model()
     yield
     _state.clear()
 
@@ -26,7 +28,12 @@ install_metrics(app)
 
 @app.get(HEALTH_PATH, response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(status="ok", model_loaded="model" in _state)
+    model_loaded = "model" in _state
+    return HealthResponse(
+        status="ok",
+        model_loaded=model_loaded,
+        model_backend=MODEL_BACKEND if model_loaded else None,
+    )
 
 
 @app.post("/predict", response_model=TriageResponse)

@@ -23,3 +23,4 @@ class TriageResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     model_loaded: bool
+    model_backend: str | None = None

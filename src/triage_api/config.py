@@ -11,6 +11,7 @@ RAW_DATA_DIR = DATA_DIR / "raw"
 DATASET_PATH = DATA_DIR / "triage.csv"
 SAMPLE_DATASET_PATH = PROJECT_ROOT / "data" / "sample_triage.csv"
 MODEL_PATH = Path(os.getenv("TRIAGE_MODEL_PATH", MODEL_DIR / "model.joblib"))
+ONNX_MODEL_PATH = Path(os.getenv("TRIAGE_ONNX_MODEL_PATH", MODEL_DIR / "model.onnx"))
 METRICS_PATH = MODEL_DIR / "metrics.json"
 
 CORPUS_COMMIT = "70a2d9106c724729be8b3c4ddb00d1b14ec300c8"
@@ -22,3 +23,5 @@ CORPUS_FILES = ("medical_tc_train.csv", "medical_tc_test.csv")
 SAMPLE_SIZE = int(os.getenv("TRIAGE_SAMPLE_SIZE", "150"))
 
 RANDOM_SEED = int(os.getenv("TRIAGE_RANDOM_SEED", "42"))
+ONNX_LOCALE = os.getenv("TRIAGE_ONNX_LOCALE", "C.utf8")
+MODEL_BACKEND = os.getenv("TRIAGE_MODEL_BACKEND", "onnx")
