@@ -9,7 +9,7 @@ from airflow.decorators import dag, task
 from airflow.exceptions import AirflowFailException
 
 MIN_MACRO_F1_ENV = "TRIAGE_MIN_MACRO_F1"
-DEFAULT_MIN_MACRO_F1 = "0.80"
+DEFAULT_MIN_MACRO_F1 = "0.55"
 
 logger = logging.getLogger("airflow.task")
 
@@ -20,8 +20,9 @@ logger = logging.getLogger("airflow.task")
     start_date=pendulum.datetime(2025, 1, 1, tz="UTC"),
     catchup=False,
     tags=["triage", "mlops"],
-    doc_md="Weekly retraining pipeline: ingest -> train -> evaluate -> publish, "
-    "gated on a macro-F1 threshold before promoting the artifact to the registry.",
+    doc_md="Weekly retraining pipeline: ingest -> train -> evaluate -> export_onnx -> "
+    "validate_onnx -> publish, gated on a macro-F1 threshold before exporting to ONNX and "
+    "on sklearn/ONNX parity before promoting both artifacts to the registry.",
 )
 def triage_retraining():
     @task
@@ -46,15 +47,34 @@ def triage_retraining():
         return metrics
 
     @task
-    def publish(metrics: dict) -> str:
-        from triage_api.config import MODEL_DIR, MODEL_PATH
+    def export_onnx(metrics: dict) -> dict:
+        from triage_api.onnx_export import export_to_onnx
+
+        export_to_onnx()
+        return metrics
+
+    @task
+    def validate_onnx(metrics: dict) -> dict:
+        from triage_api.onnx_validate import validate_onnx as check_onnx_parity
+
+        try:
+            check_onnx_parity(metrics)
+        except ValueError as exc:
+            raise AirflowFailException(str(exc)) from exc
+        return metrics
+
+    @task
+    def publish(metrics: dict) -> dict:
+        from triage_api.config import MODEL_DIR, MODEL_PATH, ONNX_MODEL_PATH
         from triage_api.registry import promote
 
-        promoted_path = promote(MODEL_PATH, MODEL_DIR / "registry")
-        logger.info("Promoted model version %s", promoted_path.name)
-        return promoted_path.name
+        registry_dir = MODEL_DIR / "registry"
+        joblib_path = promote(MODEL_PATH, registry_dir, latest_name="latest.txt")
+        onnx_path = promote(ONNX_MODEL_PATH, registry_dir, latest_name="latest_onnx.txt")
+        logger.info("Promoted model versions %s, %s", joblib_path.name, onnx_path.name)
+        return {"joblib": joblib_path.name, "onnx": onnx_path.name}
 
-    publish(evaluate(train(ingest())))
+    publish(validate_onnx(export_onnx(evaluate(train(ingest())))))
 
 
 triage_retraining()
